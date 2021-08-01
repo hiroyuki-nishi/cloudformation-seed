@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  EnvName:
+    Type: String
+Mappings:
+  EnvDomainNameMap:
+    dev:
+      DomainName: sample.com
+      HostedZoneName: sample.com. # TODO: 調べる
+      SslARN: 'arn:aws:acm:us-east-1:(アカウントID):certificate/(????)'  # TODO: 調べる
+#      WebAclId: '(WebACLでアクセス制限するなら必要)'
+Resources:
+  # CloudFrontの作成
+  SampleSpaDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !ImportValue # TODO: S3のオリジンの場所のはず
+            Id: !FindInMap [EnvDomainNameMap, !Ref EnvName, DomainName]
+            S3OriginConfig:
+              OriginAccessIdentity: !Join ['', ['origin-access-identity/cloudfront/', !ImportValue sample-cloudfront-oai-logicalid]] # OAIの指定
+        DefaultCacheBehavior:
+          TargetOriginId: !FindInMap [EnvDomainNameMap, !Ref EnvName, DomainName]
+          ViewerProtocolPolicy: redirect-to-https
+          MinTTL: 0
+          MaxTTL: 31536000
+          DefaultTTL: 0
+          SmoothStreaming: false
+          Compress: false
+          ForwardedValues:
+            Cookies:
+              Forward: none
+            QueryString: false
+        PriceClass: PriceClass_200
+        Aliases: [!FindInMap [EnvDomainNameMap, !Ref EnvName, DomainName]]
+        ViewerCertificate:
+          AcmCertificateArn: !FindInMap [EnvDomainNameMap, !Ref EnvName, SslARN]
+          SslSupportMethod: sni-only
+        HttpVersion: http1.1
+        DefaultRootObject: index.html
+        Logging:
+          IncludeCookies: true
+          # TODO: ログのS3の場所を指定
+          Bucket: cloudfront-access-logs.s3.amazonaws.com
+          Prefix: !Sub '${EnvName}/logs/'
+        Enabled: true
+        Comment: NotificationInhouseSPA
+        CustomErrorResponses:
+          - ErrorCode: 500
+            ErrorCachingMinTTL: 300
+#        WebACLId: !FindInMap [EnvDomainNameMap, !Ref EnvName, WebAclId] 必要であれば
+  # Route53の作成
+  SampleRoute53Record:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      AliasTarget:
+        DNSName: !GetAtt SampleSpaDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2 # どの環境でも同じ値になる。https://docs.aws.amazon.com/ja_jp/AWSCloudFormation/latest/UserGuide/aws-properties-route53-aliastarget-1.html
+      HostedZoneName: !FindInMap [EnvDomainNameMap, !Ref EnvName, HostedZoneName]
+      Name: !FindInMap [EnvDomainNameMap, !Ref EnvName, DomainName]
+      Type: A

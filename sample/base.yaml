@@ -1,0 +1,250 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  EnvName:
+    Type: String
+Mappings:
+  EnvMap:
+    dev:
+      EncryptionKey: 'KMSの暗号化キー'
+      BranchName: 'ブランチ名'
+Resources:
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+        Type: S3
+        # TODO: artifactsのS3作成
+        Location: !Sub artifacts-${EnvName}
+        EncryptionKey:
+          Id:
+            Fn::FindInMap:
+              - EnvMap
+              - Ref: EnvName
+              - EncryptionKey
+          Type: KMS
+      Name: !Sub sample-${EnvName}
+      # TODO: role作成
+      RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/codepipeline-role
+      Stages:
+      - Name: Source
+        Actions:
+        - Name: Source
+          ActionTypeId:
+            Category: Source
+            Owner: AWS
+            Provider: CodeCommit
+            Version: 1
+          RunOrder: 1
+          Configuration:
+            PollForSourceChanges: false
+            RepositoryName: infra-resources
+            BranchName:
+              Fn::FindInMap:
+                - EnvMap
+                - Ref: EnvName
+                - BranchName
+          InputArtifacts: []
+          OutputArtifacts:
+          # Artifact の Name は Actions の Name と連動する
+          - Name: SourceArtifact
+          RoleArn: arn:aws:iam:: # TODO codecommit用のロール
+      - Name: CreateChangeSet
+        Actions:
+#          - Name: IAM
+#            ActionTypeId:
+#              Category: Deploy
+#              Owner: AWS
+#              Provider: CloudFormation
+#              Version: '1'
+#            InputArtifacts:
+#              - Name: SourceArtifact
+#            Configuration:
+#              ActionMode: CHANGE_SET_REPLACE
+#              Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+#              StackName: !Sub infra-resources-sample-iam-${EnvName}
+#              ChangeSetName: !Sub infra-resources-sample-iam-${EnvName}
+#              TemplatePath: SourceArtifact::sample/sample-iam.yaml
+#              RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/cloudformation-role # TODO cloudfomation用のロール
+#              ParameterOverrides: !Sub |
+#                {
+#                  "EnvName": "${EnvName}"
+#                }
+#            RunOrder: 1
+#          - Name: SQS
+#            ActionTypeId:
+#              Category: Deploy
+#              Owner: AWS
+#              Provider: CloudFormation
+#              Version: '1'
+#            InputArtifacts:
+#              - Name: SourceArtifact
+#            Configuration:
+#              ActionMode: CHANGE_SET_REPLACE
+#              StackName: !Sub infra-resources-sample-sqs-${EnvName}
+#              ChangeSetName: !Sub infra-resources-sample-sqs-${EnvName}
+#              TemplatePath: SourceArtifact::sample/sample-sqs.yaml
+#              RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/cloudformation-role
+#              ParameterOverrides: !Sub |
+#                {
+#                  "EnvName": "${EnvName}"
+#                }
+#            RunOrder: 1
+#          - Name: DynamoDB
+#            ActionTypeId:
+#              Category: Deploy
+#              Owner: AWS
+#              Provider: CloudFormation
+#              Version: '1'
+#            InputArtifacts:
+#              - Name: SourceArtifact
+#            Configuration:
+#              ActionMode: CHANGE_SET_REPLACE
+#              StackName: !Sub infra-resources-sample-dynamodb-${EnvName}
+#              ChangeSetName: !Sub infra-resources-sample-dynamodb-${EnvName}
+#              TemplatePath: SourceArtifact::sample/sample-dynamodb.yaml
+#              RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/cloudformation-role
+#              ParameterOverrides: !Sub |
+#                {
+#                  "EnvName": "${EnvName}"
+#                }
+#            RunOrder: 1
+#          - Name: S3
+#            ActionTypeId:
+#              Category: Deploy
+#              Owner: AWS
+#              Provider: CloudFormation
+#              Version: '1'
+#            InputArtifacts:
+#              - Name: SourceArtifact
+#            Configuration:
+#              ActionMode: CHANGE_SET_REPLACE
+#              StackName: !Sub infra-resources-sample-s3-${EnvName}
+#              ChangeSetName: !Sub infra-resources-sample-s3-${EnvName}
+#              TemplatePath: SourceArtifact::sample/sample-s3.yaml
+#              RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/cloudformation-role
+#              ParameterOverrides: !Sub |
+#                {
+#                  "EnvName": "${EnvName}"
+#                }
+#            RunOrder: 1
+          - Name: CodePipelineApi
+            ActionTypeId:
+              Category: Deploy
+              Owner: AWS
+              Provider: CloudFormation
+              Version: '1'
+            InputArtifacts:
+              - Name: SourceArtifact
+            Configuration:
+              ActionMode: CHANGE_SET_REPLACE
+              StackName: !Sub infra-resources-sample-codepipeline-api-${EnvName}
+              ChangeSetName: !Sub infra-resources-sample-codepipeline-api-${EnvName}
+              TemplatePath: SourceArtifact::sample/sample-codepipeline-api.yaml
+              RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/cloudformation-role
+              ParameterOverrides: !Sub |
+                {
+                  "EnvName": "${EnvName}"
+                }
+            RunOrder: 1
+#          - Name: CodePipelineConsumer
+#            ActionTypeId:
+#              Category: Deploy
+#              Owner: AWS
+#              Provider: CloudFormation
+#              Version: '1'
+#            InputArtifacts:
+#              - Name: SourceArtifact
+#            Configuration:
+#              ActionMode: CHANGE_SET_REPLACE
+#              StackName: !Sub infra-resources-sample-codepipeline-consumer-${EnvName}
+#              ChangeSetName: !Sub infra-resources-sample-codepipeline-consumer-${EnvName}
+#              TemplatePath: SourceArtifact::sample/sample-codepipeline-consumer.yaml
+#              RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/cloudformation-role
+#              ParameterOverrides: !Sub |
+#                {
+#                  "EnvName": "${EnvName}"
+#                }
+#            RunOrder: 1
+      - Name: ApproveChangeSets
+        Actions:
+          - Name: Approve
+            ActionTypeId:
+              Category: Approval
+              Owner: AWS
+              Provider: Manual
+              Version: '1'
+            RunOrder: 1
+      - Name: ExecuteChangeSet
+        Actions:
+#          - Name: IAM
+#            ActionTypeId:
+#              Category: Deploy
+#              Owner: AWS
+#              Provider: CloudFormation
+#              Version: '1'
+#            Configuration:
+#              ActionMode: CHANGE_SET_EXECUTE
+#              StackName: !Sub infra-resources-sample-iam-${EnvName}
+#              ChangeSetName: !Sub infra-resources-sample-iam-${EnvName}
+#              RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/cloudformation-role
+#            RunOrder: 1
+#          - Name: SQS
+#            ActionTypeId:
+#              Category: Deploy
+#              Owner: AWS
+#              Provider: CloudFormation
+#              Version: '1'
+#            Configuration:
+#              ActionMode: CHANGE_SET_EXECUTE
+#              StackName: !Sub infra-resources-sample-sqs-${EnvName}
+#              ChangeSetName: !Sub infra-resources-sample-sqs-${EnvName}
+#              RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/cloudformation-role
+#            RunOrder: 1
+#          - Name: DynamoDB
+#            ActionTypeId:
+#              Category: Deploy
+#              Owner: AWS
+#              Provider: CloudFormation
+#              Version: '1'
+#            Configuration:
+#              ActionMode: CHANGE_SET_EXECUTE
+#              StackName: !Sub infra-resources-sample-dynamodb-${EnvName}
+#              ChangeSetName: !Sub infra-resources-sample-dynamodb-${EnvName}
+#              RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/cloudformation-role
+#            RunOrder: 1
+#          - Name: S3
+#            ActionTypeId:
+#              Category: Deploy
+#              Owner: AWS
+#              Provider: CloudFormation
+#              Version: '1'
+#            Configuration:
+#              ActionMode: CHANGE_SET_EXECUTE
+#              StackName: !Sub infra-resources-sample-s3-${EnvName}
+#              ChangeSetName: !Sub infra-resources-sample-s3-${EnvName}
+#              RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/cloudformation-role
+#            RunOrder: 1
+          - Name: CodePipelineApi
+            ActionTypeId:
+              Category: Deploy
+              Owner: AWS
+              Provider: CloudFormation
+              Version: '1'
+            Configuration:
+              ActionMode: CHANGE_SET_EXECUTE
+              StackName: !Sub infra-resources-sample-codepipeline-api-${EnvName}
+              ChangeSetName: !Sub infra-resources-sample-codepipeline-api-${EnvName}
+              RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/cloudformation-role
+            RunOrder: 1
+#          - Name: CodePipelineConsumer
+#            ActionTypeId:
+#              Category: Deploy
+#              Owner: AWS
+#              Provider: CloudFormation
+#              Version: '1'
+#            Configuration:
+#              ActionMode: CHANGE_SET_EXECUTE
+#              StackName: !Sub infra-resources-sample-codepipeline-consumer-${EnvName}
+#              ChangeSetName: !Sub infra-resources-sample-codepipeline-consumer-${EnvName}
+#              RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/cloudformation-role
+#            RunOrder: 1
