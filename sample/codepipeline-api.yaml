@@ -5,6 +5,7 @@ Parameters:
 Mappings:
   EnvMap:
     dev:
+       # TODO: KMS指定
       EncryptionKey: '(KMSキー)'
       ApiCertificateArn: 'arn:aws:acm:ap-northeast-1:(アカウントID):certificate/(???)'
       ApiDomainName: 'sample.com'
@@ -17,7 +18,7 @@ Resources:
       Name: !Sub 'sample-api-${EnvName}'
       ArtifactStore:
         Type: S3
-        Location: !Sub 'artifacts-${EnvName}' # TODO: artifacatのS3作成
+        Location: !Sub 'artifacts-${EnvName}'
         EncryptionKey:
           Id:
             Fn::FindInMap:
@@ -47,7 +48,8 @@ Resources:
               InputArtifacts: []
               OutputArtifacts:
                 - Name: SourceArtifact
-              RoleArn: !Sub arn:aws:iam::[?????????]:role/codecommit-role  # TODO: 元となるAccount(灰色とか)ID
+              RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/codecommit-role # TODO: マルチアカウント対応の際は要修正が必要
+#              RoleArn: !Sub arn:aws:iam::相手先のアカウントIDを指定:role/codecommit-role # TODO: マルチアカウント対応の際は要修正が必要
         - Name: Deploy
           Actions:
             - Name: Approval
@@ -75,7 +77,7 @@ Resources:
     Properties:
       Name: !Sub 'sample-api-${EnvName}'
       BadgeEnabled: false
-      ServiceRole: !Sub arn:aws:iam::${AWS::AccountId}:role/codebuild-role
+      ServiceRole: !Sub arn:aws:iam::${AWS::AccountId}:role/codebuild-role # TODO: codebuildロール
       TimeoutInMinutes: 60
       Artifacts:
         Type: CODEPIPELINE
@@ -97,7 +99,7 @@ Resources:
             Value: !Ref 'EnvName'
             Type: PLAINTEXT
           - Name: S3_BUCKET
-            Value: !Sub 'sample-sam-deployment-${EnvName}' # TODO: samデプロイ用のS3バケット作成
+            Value: !Sub 'sample-sam-deployment-${EnvName}'
             Type: PLAINTEXT
           - Name: API_CERTIFICATE_ARN
             Value:

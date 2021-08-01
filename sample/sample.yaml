@@ -6,15 +6,14 @@ Mappings:
   EnvMap:
     dev:
       EncryptionKey: 'KMSの暗号化キー'
-      BranchName: 'ブランチ名'
+      BranchName: 'dev/release'
 Resources:
   CodePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
       ArtifactStore:
         Type: S3
-        # TODO: artifactsのS3作成
-        Location: !Sub artifacts-${EnvName}
+        Location: !Sub sample-artifacts-${EnvName}
         EncryptionKey:
           Id:
             Fn::FindInMap:
@@ -23,7 +22,6 @@ Resources:
               - EncryptionKey
           Type: KMS
       Name: !Sub sample-${EnvName}
-      # TODO: role作成
       RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/codepipeline-role
       Stages:
       - Name: Source
@@ -47,7 +45,7 @@ Resources:
           OutputArtifacts:
           # Artifact の Name は Actions の Name と連動する
           - Name: SourceArtifact
-          RoleArn: arn:aws:iam:: # TODO codecommit用のロール
+          RoleArn: arn:aws:iam:: # TODO codecommit用のロール（マルチアカウント）
       - Name: CreateChangeSet
         Actions:
 #          - Name: IAM

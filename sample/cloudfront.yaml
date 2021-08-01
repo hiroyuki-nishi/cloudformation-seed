@@ -41,8 +41,7 @@ Resources:
         DefaultRootObject: index.html
         Logging:
           IncludeCookies: true
-          # TODO: ログのS3の場所を指定
-          Bucket: cloudfront-access-logs.s3.amazonaws.com
+          Bucket: sample-cloudfront-access-logs.s3.amazonaws.com
           Prefix: !Sub '${EnvName}/logs/'
         Enabled: true
         Comment: NotificationInhouseSPA
