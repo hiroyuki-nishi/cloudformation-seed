@@ -1,0 +1,19 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  EnvName:
+    Type: String
+Resources:
+  SampleSpaCloudFrontOAI:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub access-identity-sample-spa-${EnvName}
+Outputs:
+  SampleSpaCloudFrontOAILogicalId:
+    Value: !Ref SampleSpaCloudFrontOAI
+    Export:
+      Name: sample-cloudfront-oai-logicalid
+  SampleSpaCloudFrontOAIS3CanonicalUserId:
+    Value: !GetAtt SampleSpaCloudFrontOAI.S3CanonicalUserId
+    Export:
+      Name: sample-cloudfront-oai-s3canonicaluserid

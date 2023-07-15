@@ -1,0 +1,249 @@
+# AWSアカウントを作成したい際に開発に必要な各種ロールやS3を作る設定yaml
+# 参考: https://docs.aws.amazon.com/ja_jp/codepipeline/latest/userguide/security-iam.html#how-to-custom-role
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  EnvName:
+    Type: String
+Resources:
+  # Cloudformation用
+  CloudformationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: "/"
+      RoleName: cloudformation-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service:
+                - cloudformation.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
+
+  CloudformationRolePolicies:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: "cloudformation-policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Action:
+              - "application-autoscaling:*"
+              - "rds:*"
+              - "firehose:*"
+              - "logs:*"
+              - "cloudtrail:*"
+              - "cloudsearch:*"
+              - "dynamodb:*"
+              - "opsworks-cm:*"
+              - "sqs:*"
+              - "autoscaling:*"
+              - "athena:*"
+              - "codebuild:*"
+              - "glue:*"
+              - "iam:PassRole"
+              - "cloudfront:*"
+              - "route53domains:*"
+              - "ses:*"
+              - "wafv2:*"
+              - "opsworks:*"
+              - "codedeploy:*"
+              - "kinesis:*"
+              - "events:*"
+              - "execute-api:*"
+              - "states:*"
+              - "sns:*"
+              - "cognito-identity:*"
+              - "apigateway:*"
+              - "s3:*"
+              - "cloudformation:*"
+              - "elasticloadbalancing:*"
+              - "iam:*"
+              - "es:*"
+              - "elasticbeanstalk:*"
+              - "cloudwatch:*"
+              - "ssm:*"
+              - "ecs:*"
+              - "route53:*"
+              - "lambda:*"
+              - "ec2:*"
+              - "codepipeline:*"
+              - "cognito-idp:*"
+              - "elasticmapreduce:*"
+              - "acm:*"
+            "Resource": "*"
+      Roles:
+        -
+          Ref: CodePipelineRole
+
+  # CodePipeline用
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: "/"
+      RoleName: codepipeline-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+
+  CodePipelineRolePolicies:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: "codepipeline-policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Action:
+              - "codecommit:GetBranch"
+              - "codecommit:GetCommit"
+              - "codecommit:UploadArchive"
+              - "codecommit:GetUploadArchiveStatus"
+              - "codecommit:CancelUploadArchive"
+              - "cloudformation:CreateStack"
+              # Cloudformation用
+              - "cloudformation:DeleteStack"
+              - "cloudformation:DescribeStacks"
+              - "cloudformation:UpdateStack"
+              - "cloudformation:CreateChangeSet"
+              - "cloudformation:DeleteChangeSet"
+              - "cloudformation:DescribeChangeSet"
+              - "cloudformation:ExecuteChangeSet"
+              - "cloudformation:SetStackPolicy"
+              - "cloudformation:ValidateTemplate"
+              - "iam:PassRole"
+              # CodeBuild用
+              - "codebuild:BatchGetBuilds"
+              - "codebuild:StartBuild"
+            "Resource": "*"
+      Roles:
+        -
+          Ref: CodePipelineRole
+
+  # CodeBuild用
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: "/"
+      RoleName: codebuild-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+
+  # KMS(CodeCommitやCodePipeline用のKMS)
+  DeployKey:
+    Type: AWS::KMS::Key
+    DependsOn:
+      - CodePipelineRole
+      - CodeBuildRole
+    Properties:
+      Description: An example symmetric CMK
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: key-default-1
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: '*'
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${AWS::AccountId}:user/hiroyuki.nishi # 指定したユーザーにだけ特権
+            Action:
+              - kms:Create*
+              - kms:Describe*
+              - kms:Enable*
+              - kms:List*
+              - kms:Put*
+              - kms:Update*
+              - kms:Revoke*
+              - kms:Disable*
+              - kms:Get*
+              - kms:Delete*
+              - kms:ScheduleKeyDeletion
+              - kms:CancelKeyDeletion
+            Resource: '*'
+          - Sid: Allow use of the key
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${AWS::AccountId}:root
+                - !GetAtt CodePipelineRole.Arn
+                - !GetAtt CodeBuildRole.Arn
+            Action:
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey
+              - kms:GenerateDataKeyWithoutPlaintext
+            Resource: '*'
+          - Sid: Allow attachment of persistent resources
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${AWS::AccountId}:root
+                - !GetAtt CodePipelineRole.Arn
+                - !GetAtt CodeBuildRole.Arn
+            Action:
+              - kms:CreateGrant
+              - kms:ListGrants
+              - kms:RevokeGrant
+            Resource: '*'
+            Condition:
+              Bool:
+                kms:GrantIsForAWSResource: true
+  Alias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/codepipeline
+      TargetKeyId: !Ref DeployKey
+
+  # S3
+  S3SampleCloudFrontAccessLogs:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: sample-cloudfront-access-logs
+      LifecycleConfiguration:
+        Rules:
+          - Id: LifeCycleRule
+            Status: Enabled
+            ExpirationInDays: '30'
+  S3SampleArtifacts:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub sample-artifacts-${EnvName}
+      LifecycleConfiguration:
+        Rules:
+          - Id: LifeCycleRule
+            Status: Enabled
+            ExpirationInDays: '30'
+  S3SampleSamDeployment:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub sample-sam-deployment-${EnvName}
+      LifecycleConfiguration:
+        Rules:
+          - Id: LifeCycleRule
+            Status: Enabled
+            ExpirationInDays: '30'
